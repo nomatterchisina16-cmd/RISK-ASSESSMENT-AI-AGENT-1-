@@ -8,10 +8,16 @@ load_dotenv()
 
 st.set_page_config(
     page_title="Credit Risk Assessment AI Agent",
-    page_icon="📊",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 st.markdown(
     """
@@ -412,7 +418,7 @@ def main():
     st.markdown(
         """
     <div class="main-header">
-        <h1>📊 Credit Risk Assessment AI Agent</h1>
+        <h1>🤖 Credit Risk Assessment AI Agent</h1>
         <p>Intelligent credit risk analysis powered by advanced AI</p>
     </div>
     """,
@@ -421,6 +427,166 @@ def main():
 
     client = initialize_groq_client()
 
+    tab1, tab2 = st.tabs(["📋 Risk Assessment Form", "💬 Chat with AI Advisor"])
+
+    with tab1:
+        show_assessment_form(client)
+
+    with tab2:
+        show_chatbot(client)
+
+
+def show_chatbot(client):
+    st.markdown(
+        """
+    <div class="result-section" style="margin-bottom: 1rem;">
+        <h3>💬 AI Risk Advisor Chat</h3>
+        <p style="color: #4A5568;">Ask questions about credit risk assessment, loan approvals, or financial analysis in natural language.</p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask about credit risk assessment..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = get_chatbot_response(client, prompt)
+                st.markdown(response)
+
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+    if st.session_state.messages:
+        col1, col2 = st.columns([1, 5])
+        with col1:
+            if st.button("🗑️ Clear Chat", type="secondary"):
+                st.session_state.messages = []
+                st.rerun()
+
+
+def get_chatbot_response(client, prompt):
+    risk_context = """You are an expert financial risk analyst specializing in credit assessment. 
+    
+    You help users understand:
+    - Credit risk evaluation criteria
+    - Debt-to-income ratios and what they mean
+    - Payment history impact on credit scores
+    - Industry-specific risk factors
+    - Loan approval recommendations
+    - Financial metrics and their significance
+    
+    Provide clear, professional, and actionable insights. Use examples when helpful.
+    
+    If asked to assess specific scenarios, provide detailed analysis with clear recommendations."""
+
+    chat_history = "\n".join(
+        [f"{m['role']}: {m['content']}" for m in st.session_state.chat_history[-6:]]
+    )
+
+    full_prompt = f"""Previous conversation:
+{chat_history}
+
+Current question: {prompt}
+
+Please provide a helpful and informative response."""
+
+    if client:
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": risk_context},
+                    {"role": "user", "content": full_prompt},
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0.7,
+                max_tokens=1024,
+            )
+            return chat_completion.choices[0].message.content
+        except Exception as e:
+            return f"I'm having trouble connecting to the AI service. Please try again. Error: {str(e)}"
+    else:
+        return get_fallback_chatbot_response(prompt)
+
+
+def get_fallback_chatbot_response(prompt):
+    prompt_lower = prompt.lower()
+
+    if any(word in prompt_lower for word in ["risk level", "assess", "evaluate"]):
+        return """Based on general credit risk principles:
+
+**Key factors for risk assessment:**
+
+1. **Debt-to-Income Ratio** - Generally, ratios below 36% are considered healthy
+2. **Credit History** - Longer history with on-time payments = lower risk
+3. **Payment History** - Consistently paying on time significantly reduces risk
+4. **Industry Risk** - Some sectors (like tech startups) carry higher inherent risk
+5. **Revenue Stability** - Consistent, growing revenue indicates lower risk
+
+**Risk Categories:**
+- 🟢 Low Risk (0-33): Strong financials, good credit history
+- 🟡 Medium Risk (34-66): Some concerns but manageable
+- 🔴 High Risk (67-100): Significant red flags, requires careful review
+
+Would you like me to analyze a specific case? Use the **Risk Assessment Form** tab for detailed evaluation."""
+
+    elif any(word in prompt_lower for word in ["approve", "approval", "should i lend"]):
+        return """When evaluating loan approval, consider:
+
+**Favorable indicators:**
+✓ Debt-to-income ratio < 36%
+✓ 5+ years of credit history
+✓ Excellent payment history
+✓ Revenue significantly exceeds debt
+✓ Stable industry
+
+**Red flags:**
+✗ Debt-to-income > 50%
+✗ Poor payment history
+✗ Recent credit inquiries
+✗ Unstable or declining revenue
+✗ High-risk industry with poor fundamentals
+
+**Recommendation:** Use the **Risk Assessment Form** to get a comprehensive score-based evaluation."""
+
+    elif any(word in prompt_lower for word in ["debt", "ratio", "income"]):
+        return """**Debt-to-Income Ratio Explained:**
+
+The debt-to-income (DTI) ratio compares your monthly debt payments to your gross monthly income.
+
+**Formula:** DTI = (Monthly Debt Payments / Gross Monthly Income) × 100
+
+**General Guidelines:**
+- Below 36%: ✅ Healthy (low risk)
+- 36-43%: ⚠️ Moderate (some concern)
+- Above 43%: ❌ High (elevated risk)
+
+**Example:** If you earn $10,000/month and have $3,500 in monthly debt payments, your DTI is 35%.
+
+Lenders typically prefer DTI below 36% for optimal loan terms."""
+
+    else:
+        return """I'm here to help with credit risk assessment questions!
+
+**I can help with:**
+- Explaining risk assessment factors
+- Interpreting financial metrics
+- Loan approval guidance
+- Credit score considerations
+- Industry risk factors
+
+**For detailed assessment**, use the **Risk Assessment Form** tab where I can analyze specific financial data and provide a comprehensive risk score.
+
+What would you like to know more about?"""
+
+
+def show_assessment_form(client):
     with st.sidebar:
         st.markdown("### 📝 Application Data")
         st.markdown("---")
@@ -545,7 +711,6 @@ def main():
         with st.spinner("🔄 Analyzing risk factors..."):
             risk_score = calculate_risk_score(data)
             risk_level, risk_class = get_risk_level(risk_score["score"])
-
             analysis = generate_ai_analysis(client, data, risk_score, risk_level)
 
         col1, col2, col3, col4 = st.columns(4)
@@ -625,9 +790,6 @@ def main():
             )
 
             score_float = risk_score["score"]
-            low_pct = min(score_float, 33) / 33 * 100
-            med_pct = min(max(score_float - 33, 0), 33) / 33 * 100
-            high_pct = min(max(score_float - 66, 0), 34) / 34 * 100
 
             if score_float <= 33:
                 gauge_color = "#38A169"

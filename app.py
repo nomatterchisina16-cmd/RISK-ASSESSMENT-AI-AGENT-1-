@@ -420,6 +420,7 @@ def main():
     <div class="main-header">
         <h1>🤖 Credit Risk Assessment AI Agent</h1>
         <p>Intelligent credit risk analysis powered by advanced AI</p>
+        <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 0.5rem;">Developed by <strong>Nomatter Chisina</strong></p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -901,6 +902,18 @@ def show_assessment_form(client):
                 st.metric("Expense Ratio", f"{risk_score['expense_score']:.1f}/100")
                 st.metric("Final Risk Score", f"{risk_score['score']:.1f}/100")
                 st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown(
+        """
+    <div style="text-align: center; padding: 2rem 0; color: #4A5568; font-size: 0.9rem;">
+        <p><strong>Credit Risk Assessment AI Agent</strong></p>
+        <p>Developed with ❤️ by <strong>Nomatter Chisina</strong></p>
+        <p style="margin-top: 0.5rem;">Powered by Groq AI & Streamlit</p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
